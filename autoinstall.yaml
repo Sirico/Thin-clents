@@ -33,7 +33,7 @@ autoinstall:
 
     # Keyboard configuration
     keyboard:
-        layout: "us"
+        layout: "gb"
         variant: ""
 
     # Locale and timezone settings
