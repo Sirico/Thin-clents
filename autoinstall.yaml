@@ -1,122 +1,16 @@
-# Required configuration
+#cloud-config
 autoinstall:
-    version: 1  # Defines the version of the autoinstall configuration.
-
-    # Identity configuration
-    identity:
-        realname: "user"
-        username: user
-        # Replace this hash with your own secure password hash.
-        password: "<password hash>"
-        hostname: computer-name
-
-    # Minimal package installation for thin client
-    packages:
-        - xorg
-        - openbox           # Lightweight window manager
-        - lightdm           # Lightweight display manager
-        - remmina
-        - network-manager
-        - cockpit
-        - unattended-upgrades
-        - openssh-server    # Install SSH server
-
-    # Install Remmina via snaps
-    snaps:
-        - name: remmina
-
-    # Storage configuration (using direct layout instead of LVM)
-    storage:
-        layout:
-            name: direct
-            # Removed encryption for simplicity in thin clients
-            # If encryption is required, you can add 'password' field here.
-
-    # Keyboard configuration
-    keyboard:
-        layout: "gb"
-        variant: ""
-
-    # Locale and timezone settings
-    locale: "en_GB.UTF-8"
-    timezone: "Europe/London"
-
-    # APT configuration to enable unattended upgrades
-    apt:
-        preserve_sources_list: false
-        geoip: true
-        primary:
-            - arches: [default]
-              uri: http://archive.ubuntu.com/ubuntu
-        unattended-upgrades: true
-
-    # Network configuration using NetworkManager
-    network:
-        version: 2
-        renderer: NetworkManager
-        ethernets:
-            wired:
-                match:
-                    name: e*  # Applies to all wired interfaces
-                dhcp4: true
-                dhcp6: true
-        # Add 'wifis' section if wireless connections are needed
-
-    # Disable interactive sections for fully unattended install
-    interactive-sections: []
-
-    # Updates and reboot settings
-    updates: all
-    shutdown: reboot
-
-    # Late commands to configure the system
-    late-commands:
-        # Enable automatic login for LightDM
-        - >
-          echo '[Seat:*]' > /target/etc/lightdm/lightdm.conf
-        - >
-          echo 'autologin-user=user' >> /target/etc/lightdm/lightdm.conf
-
-        # Configure Remmina to auto-start and connect to remote session
-        - mkdir -p /target/home/user/.config/autostart
-        - >
-          echo '[Desktop Entry]
-          Type=Application
-          Exec=remmina -c /home/user/.remmina/your_connection.remmina
-          Hidden=false
-          NoDisplay=false
-          X-GNOME-Autostart-enabled=true
-          Name=Remmina Autostart' > /target/home/user/.config/autostart/remmina.desktop
-        - >
-          chroot /target chown -R user:user /home/user/.config
-
-        # Enable Cockpit service
-        - chroot /target systemctl enable cockpit.socket
-
-        # Remove unnecessary packages to lighten the system
-        - >
-          chroot /target apt-get remove -y
-          ubuntu-desktop ubuntu-server ubuntu-server-minimal
-          lvm2 mdadm
-
-        # Autoremove any unneeded dependencies
-        - chroot /target apt-get autoremove -y
-
-        # Disable unnecessary TTYs
-        - >
-          for tty in {2..6}; do
-            echo "manual" > /target/etc/init/tty${tty}.override;
-          done
-
-        # Enable SSH password authentication
-        - >
-          sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
-        - chroot /target systemctl restart sshd
-
-    # User-data for cloud-init
-    user-data:
-        disable_root: true
-        ssh:
-            emit_keys_to_console: false  # Required property
-        chpasswd:
-            expire: false
+  version: 1
+  identity:
+    hostname: Dispatch-station
+    username: user
+    password: $6$rounds=4096$salt$ZrJvsbPXcziLjTvYIUnMTp/Oz.Vxyc4YfKh0zbHSx7IkGJx0uYpuizEknMqItECgOsIsEuYmNoS7G/Mr2cCMs1
+    realname: User
+  packages:
+    - cockpit
+    - unattended-upgrades
+  late-commands:
+    - curtin in-target --target=/target snap install remmina
+    - curtin in-target --target=/target systemctl enable cockpit.socket
+    - curtin in-target --target=/target systemctl enable unattended-upgrades
+    - echo -e '[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=user' | tee -a /target/etc/gdm3/custom.conf
