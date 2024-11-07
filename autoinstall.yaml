@@ -8,7 +8,7 @@ autoinstall:
         username: user
         # Replace this hash with your own secure password hash.
         password: "<password hash>"
-        hostname: dispatch-station
+        hostname: computer-name
 
     # Minimal package installation for thin client
     packages:
@@ -19,6 +19,7 @@ autoinstall:
         - network-manager
         - cockpit
         - unattended-upgrades
+        - openssh-server    # Install SSH server
 
     # Install Remmina via snaps
     snaps:
@@ -40,7 +41,6 @@ autoinstall:
     locale: "en_GB.UTF-8"
     timezone: "Europe/London"
 
-
     # APT configuration to enable unattended upgrades
     apt:
         preserve_sources_list: false
@@ -60,7 +60,6 @@ autoinstall:
                     name: e*  # Applies to all wired interfaces
                 dhcp4: true
                 dhcp6: true
-        # Removed Wi-Fi configuration for simplicity
         # Add 'wifis' section if wireless connections are needed
 
     # Disable interactive sections for fully unattended install
@@ -109,11 +108,15 @@ autoinstall:
             echo "manual" > /target/etc/init/tty${tty}.override;
           done
 
+        # Enable SSH password authentication
+        - >
+          sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
+        - chroot /target systemctl restart sshd
+
     # User-data for cloud-init
     user-data:
         disable_root: true
         ssh:
-            install-server: false
-            allow-pw: false
+            emit_keys_to_console: false  # Required property
         chpasswd:
             expire: false
