@@ -1,79 +1,118 @@
-#cloud-config
+# Required configuration
 autoinstall:
-  version: 1
+    version: 1  # Defines the version of the autoinstall configuration.
 
-  # Install minimal set of packages for a thin client
-  packages:
-    - xorg
-    - openbox           # Lightweight window manager
-    - lightdm           # Lightweight display manager
-    - remmina
-    - network-manager
-    - cockpit
-    - unattended-upgrades
+    # Identity configuration
+    identity:
+        realname: "user"
+        username: user
+        # Replace this hash with your own secure password hash.
+        password: "<password hash>"
+        hostname: computer-name
 
-  snaps:
-    - name: remmina
-    - name: firefox
+    # Minimal package installation for thin client
+    packages:
+        - xorg
+        - openbox           # Lightweight window manager
+        - lightdm           # Lightweight display manager
+        - remmina
+        - network-manager
+        - cockpit
+        - unattended-upgrades
 
-  apt:
-    preserve_sources_list: false
-    geoip: true
-    primary:
-      - arches: [default]
-        uri: http://archive.ubuntu.com/ubuntu
-    unattended-upgrades: true
+    # Install Remmina via snaps
+    snaps:
+        - name: remmina
 
-  identity:
-    realname: ''
-    username: user
-    password: '<password hash>'
-    hostname: Dispatch-station
+    # Storage configuration (using direct layout instead of LVM)
+    storage:
+        layout:
+            name: direct
+            # Removed encryption for simplicity in thin clients
+            # If encryption is required, you can add 'password' field here.
 
-  storage:
-    layout:
-      name: direct
+    # Keyboard configuration
+    keyboard:
+        layout: "us"
+        variant: ""
 
-  late-commands:
-    # Enable automatic login for LightDM
-    - >
-      echo '[Seat:*]' > /target/etc/lightdm/lightdm.conf
-    - >
-      echo 'autologin-user=user' >> /target/etc/lightdm/lightdm.conf
+    # Locale and timezone settings
+    locale: "en_US.UTF-8"
+    timezone: "Etc/UTC"
 
-    # Configure Remmina to auto-start and connect to remote session
-    - mkdir -p /target/home/user/.config/autostart
-    - >
-      echo '[Desktop Entry]
-      Type=Application
-      Exec=remmina -c /home/user/.remmina/your_connection.remmina
-      Hidden=false
-      NoDisplay=false
-      X-GNOME-Autostart-enabled=true
-      Name=Remmina Autostart' > /target/home/user/.config/autostart/remmina.desktop
-    - >
-      chroot /target chown -R user:user /home/user/.config
+    # APT configuration to enable unattended upgrades
+    apt:
+        preserve_sources_list: false
+        geoip: true
+        primary:
+            - arches: [default]
+              uri: http://archive.ubuntu.com/ubuntu
+        unattended-upgrades: true
 
-    # Enable Cockpit service
-    - chroot /target systemctl enable cockpit.socket
+    # Network configuration using NetworkManager
+    network:
+        version: 2
+        renderer: NetworkManager
+        ethernets:
+            wired:
+                match:
+                    name: e*  # Applies to all wired interfaces
+                dhcp4: true
+                dhcp6: true
+        # Removed Wi-Fi configuration for simplicity
+        # Add 'wifis' section if wireless connections are needed
 
-    # Remove unnecessary packages to lighten the system
-    - >
-      chroot /target apt-get remove -y
-      ubuntu-desktop ubuntu-server ubuntu-server-minimal
-      lvm2 mdadm
+    # Disable interactive sections for fully unattended install
+    interactive-sections: []
 
-    # Autoremove any unneeded dependencies
-    - chroot /target apt-get autoremove -y
+    # Updates and reboot settings
+    updates: all
+    shutdown: reboot
 
-    # Disable unnecessary TTYs
-    - >
-      for tty in {2..6}; do
-        echo "manual" > /target/etc/init/tty${tty}.override;
-      done
+    # Late commands to configure the system
+    late-commands:
+        # Enable automatic login for LightDM
+        - >
+          echo '[Seat:*]' > /target/etc/lightdm/lightdm.conf
+        - >
+          echo 'autologin-user=user' >> /target/etc/lightdm/lightdm.conf
 
-  user-data:
-    disable_root: true
-    ssh_pwauth: false
-    chpasswd:
-      expire: false
+        # Configure Remmina to auto-start and connect to remote session
+        - mkdir -p /target/home/user/.config/autostart
+        - >
+          echo '[Desktop Entry]
+          Type=Application
+          Exec=remmina -c /home/user/.remmina/your_connection.remmina
+          Hidden=false
+          NoDisplay=false
+          X-GNOME-Autostart-enabled=true
+          Name=Remmina Autostart' > /target/home/user/.config/autostart/remmina.desktop
+        - >
+          chroot /target chown -R user:user /home/user/.config
+
+        # Enable Cockpit service
+        - chroot /target systemctl enable cockpit.socket
+
+        # Remove unnecessary packages to lighten the system
+        - >
+          chroot /target apt-get remove -y
+          ubuntu-desktop ubuntu-server ubuntu-server-minimal
+          lvm2 mdadm
+
+        # Autoremove any unneeded dependencies
+        - chroot /target apt-get autoremove -y
+
+        # Disable unnecessary TTYs
+        - >
+          for tty in {2..6}; do
+            echo "manual" > /target/etc/init/tty${tty}.override;
+          done
+
+    # User-data for cloud-init
+    user-data:
+        disable_root: true
+        ssh:
+            install-server: false
+            allow-pw: false
+        chpasswd:
+            expire: false
