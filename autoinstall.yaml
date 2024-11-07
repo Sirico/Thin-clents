@@ -1,0 +1,79 @@
+#cloud-config
+autoinstall:
+  version: 1
+
+  # Install minimal set of packages for a thin client
+  packages:
+    - xorg
+    - openbox           # Lightweight window manager
+    - lightdm           # Lightweight display manager
+    - remmina
+    - network-manager
+    - cockpit
+    - unattended-upgrades
+
+  snaps:
+    - name: remmina
+    - name: firefox
+
+  apt:
+    preserve_sources_list: false
+    geoip: true
+    primary:
+      - arches: [default]
+        uri: http://archive.ubuntu.com/ubuntu
+    unattended-upgrades: true
+
+  identity:
+    realname: ''
+    username: user
+    password: '<password hash>'
+    hostname: Dispatch-station
+
+  storage:
+    layout:
+      name: direct
+
+  late-commands:
+    # Enable automatic login for LightDM
+    - >
+      echo '[Seat:*]' > /target/etc/lightdm/lightdm.conf
+    - >
+      echo 'autologin-user=user' >> /target/etc/lightdm/lightdm.conf
+
+    # Configure Remmina to auto-start and connect to remote session
+    - mkdir -p /target/home/user/.config/autostart
+    - >
+      echo '[Desktop Entry]
+      Type=Application
+      Exec=remmina -c /home/user/.remmina/your_connection.remmina
+      Hidden=false
+      NoDisplay=false
+      X-GNOME-Autostart-enabled=true
+      Name=Remmina Autostart' > /target/home/user/.config/autostart/remmina.desktop
+    - >
+      chroot /target chown -R user:user /home/user/.config
+
+    # Enable Cockpit service
+    - chroot /target systemctl enable cockpit.socket
+
+    # Remove unnecessary packages to lighten the system
+    - >
+      chroot /target apt-get remove -y
+      ubuntu-desktop ubuntu-server ubuntu-server-minimal
+      lvm2 mdadm
+
+    # Autoremove any unneeded dependencies
+    - chroot /target apt-get autoremove -y
+
+    # Disable unnecessary TTYs
+    - >
+      for tty in {2..6}; do
+        echo "manual" > /target/etc/init/tty${tty}.override;
+      done
+
+  user-data:
+    disable_root: true
+    ssh_pwauth: false
+    chpasswd:
+      expire: false
